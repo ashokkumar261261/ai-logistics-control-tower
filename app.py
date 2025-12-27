@@ -1,84 +1,80 @@
 import streamlit as st
+import os
+import requests
+import json
 import time
-from agents import SQLAgent, AnalystAgent, RouterAgent
+
+# Configuration
+API_URL = os.getenv("API_URL", "http://localhost:8003")
 
 # Page Config
-st.set_page_config(page_title="Voice Data Concierge", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="AI Logistics Control Tower", page_icon="🚚", layout="wide")
 
-st.title("🎙️ AI Voice Data Concierge")
+st.title("🚚 AI Logistics Control Tower")
 st.markdown("""
-This demo showcases a **Multi-Agent Workflow** where you can ask questions about your business data.
-It simulates a voice-activated interface.
+**Powered by LangChain & Google Gemini** | *Cloud Native Architecture*
+Ask about: **Shipments**, **Vehicles**, **Drivers**.
 """)
 
-# Initialize Agents
-if 'sql_agent' not in st.session_state:
-    st.session_state.sql_agent = SQLAgent()
-if 'analyst_agent' not in st.session_state:
-    st.session_state.analyst_agent = AnalystAgent()
-if 'router_agent' not in st.session_state:
-    st.session_state.router_agent = RouterAgent()
-
-# Chat History
+# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display Chat
+# Display Chat History
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Input (Simulating Voice)
-prompt = st.chat_input("Ask a question (e.g., 'Show me the top sales')...")
-
-if prompt:
-    # 1. User Input
+# User Input
+if prompt := st.chat_input("Ask a question (e.g., 'Where are the delayed shipments?')..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Router Step
-    with st.status("🤖 Processing...", expanded=True) as status:
-        st.write("Authored by **Router Agent**")
-        route = st.session_state.router_agent.route(prompt)
-        st.write(f"Routing to: **{route}**")
-        
-        response_text = ""
-        
-        if route == "GENERAL":
-            time.sleep(1)
-            response_text = "Hello! I am your Data Concierge. You can ask me about Employees or Sales."
-            status.update(label="Complete", state="complete")
-            
-        elif route == "SQL":
-            # 3. SQL Agent Step
-            st.write("Handoff to **SQL Agent**...")
-            time.sleep(1)
-            result = st.session_state.sql_agent.run_query(prompt)
-            
-            if result['error']:
-                response_text = f"I encountered an error querying the database: {result['error']}"
-                status.update(label="Error", state="error")
-            else:
-                st.code(result['sql'], language="sql")
-                st.dataframe(result['data'])
-                
-                # 4. Analyst Agent Step
-                st.write("Handoff to **Analyst Agent** for synthesis...")
-                time.sleep(1)
-                analysis = st.session_state.analyst_agent.analyze(result['data'], prompt)
-                response_text = analysis
-                status.update(label="Complete", state="complete")
-
-    # 5. Final Response (Voice Output)
     with st.chat_message("assistant"):
-        st.write("🔊 **Voice Output:**")
-        st.markdown(f"*{response_text}*")
+        message_placeholder = st.empty()
+        message_placeholder.markdown("🤖 *Routing query to Cloud Logistics Agent...*")
         
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+        try:
+            # Call Backend API
+            response = requests.post(f"{API_URL}/query", json={"query": prompt})
+            
+            if response.status_code == 200:
+                result = response.json()
+                summary = result.get("summary")
+                error = result.get("error")
+                
+                if error:
+                    st.error(f"Agent Error: {error}")
+                    message_placeholder.markdown("⚠️ I encountered an error processing your request.")
+                    st.session_state.messages.append({"role": "assistant", "content": f"Error: {error}"})
+                else:
+                    message_placeholder.markdown(summary)
+                    st.session_state.messages.append({"role": "assistant", "content": summary})
+                    
+                    # Optional: Log the fact that SQL was executed (opaque in LangChain agent)
+                    with st.expander("Agent Trace (Cloud Native)"):
+                        st.write("Processed by: LangChain SQL Agent")
+                        st.code("Processing logic handled by Backend API")
+            else:
+                st.error(f"API Error: {response.status_code}")
+                message_placeholder.markdown("❌ Failed to contact Logistics Cloud API.")
+        except Exception as e:
+             st.error(f"Connection Error: {e}")
+             message_placeholder.markdown("❌ Could not connect to the Backend API. Is it running?")
 
-# Sidebar - Database Preview
-st.sidebar.header("Database Preview")
-if st.sidebar.button("Refresh Schema"):
-    schema = st.session_state.sql_agent.get_schema()
-    st.sidebar.json(schema)
+# Sidebar
+st.sidebar.title("System Status")
+st.sidebar.success("Cloud Agent: Online")
+st.sidebar.info("Architecture: Streamlit -> FastAPI -> LangChain -> Gemini")
+st.sidebar.markdown("---")
+if st.sidebar.button("Ping Health Check"):
+    try:
+        res = requests.get(f"{API_URL}/health")
+        if res.status_code == 200:
+            st.sidebar.success(f"Health: {res.json()['status']}")
+        else:
+            st.sidebar.error("Unhealthy")
+    except:
+        st.sidebar.error("Offline")
+
