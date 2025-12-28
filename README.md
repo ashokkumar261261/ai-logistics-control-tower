@@ -17,7 +17,7 @@ graph TD
     User((User)) -->|Voice/Text| FE[Streamlit Frontend]
     FE -->|API Request| BE[FastAPI Backend]
     
-    subgraph AI Orchestration (LangChain)
+    subgraph "AI Orchestration (LangChain)"
       BE -->|Query| ORCH[Agent Orchestrator]
       ORCH -->|Data Task| DA[Logistics Analyst]
       ORCH -->|Strategy Task| FS[Fleet Strategist]
