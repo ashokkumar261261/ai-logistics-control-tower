@@ -15,7 +15,7 @@ paths:
       summary: "Process a logistics query"
       operationId: "processQuery"
       x-google-backend:
-        address: "FUNCTION_URL"
+        address: "https://logistics-agent-backend-255413983349.us-central1.run.app"
         deadline: 60.0
       responses:
         200:
@@ -34,7 +34,17 @@ paths:
       summary: "Health Check"
       operationId: "healthCheck"
       x-google-backend:
-        address: "FUNCTION_URL"
+        address: "https://logistics-agent-backend-255413983349.us-central1.run.app"
+        deadline: 60.0
+      responses:
+        200:
+          description: "Success"
+  /sample:
+    get:
+      summary: "Get Sample Data"
+      operationId: "getSample"
+      x-google-backend:
+        address: "https://logistics-agent-backend-255413983349.us-central1.run.app"
         deadline: 60.0
       responses:
         200:

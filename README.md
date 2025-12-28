@@ -1,75 +1,101 @@
-# AI Logistics Control Tower 🚚
+# 🚚 Cloud-Native Multi-Agent Logistics Control Tower (V3.2)
 
-An AI-powered logistics orchestration platform that translates natural language queries into SQL, executes them against Google BigQuery, and provides intelligent insights using Gemini 2.0 Flash and LangChain.
+A state-of-the-art, cloud-native logistics management system powered by **Gemini 2.0 Flash** and **LangChain**. This system orchestrates multiple AI agents to provide data-driven insights, operational strategy, and automated communication.
 
-## 🏗️ Architecture
+## 🏗️ Architecture Overview
 
-The system is built on a 100% serverless Google Cloud architecture:
+The system follows a modern, decoupled architecture designed for scalability and intelligence:
 
-- **Frontend**: [Streamlit](https://streamlit.io/) application hosted on **Google Cloud Run**.
-- **API Management**: **Google API Gateway** for secure, managed access.
-- **Backend Logic**: **Google Cloud Functions (2nd Gen)** running a LangChain SQL Agent.
-- **LLM**: **Gemini 2.0 Flash** via Vertex AI for natural language understanding and SQL generation.
-- **Database**: **Google BigQuery** for high-performance logistics data storage.
+- **Frontend**: Streamlit-based interactive dashboard with Voice-to-Text capabilities, Role-Based Access Control (RBAC), and a Data Explorer.
+- **Backend**: FastAPI services deployed on **Google Cloud Run**, acting as the brain for AI orchestration.
+- **AI Brain**: **LangChain** multi-agent framework utilizing **Gemini 2.0 Flash** (Experimental) via Google Vertex AI.
+- **Data Layer**: **Google BigQuery** serving as the centralized data warehouse for shipment, fleet, and driver data.
+- **Security**: Granular RBAC implemented at the AI context layer to ensure data privacy.
 
 ```mermaid
 graph TD
-    User((User)) -->|HTTPS| Frontend[Streamlit UI - Cloud Run]
-    Frontend -->|API Call| Gateway[Google API Gateway]
-    Gateway -->|Trigger| Backend[Logistics Agent - Cloud Functions]
-    Backend -->|Vertex AI| LLM[Gemini 2.0 Flash]
-    Backend -->|SQL| DB[(Google BigQuery)]
+    User((User)) -->|Voice/Text| FE[Streamlit Frontend]
+    FE -->|API Request| BE[FastAPI Backend]
+    
+    subgraph AI Orchestration (LangChain)
+      BE -->|Query| ORCH[Agent Orchestrator]
+      ORCH -->|Data Task| DA[Logistics Analyst]
+      ORCH -->|Strategy Task| FS[Fleet Strategist]
+      ORCH -->|Action Task| CA[Communication Assistant]
+    end
+    
+    DA -->|SQL| BQ[(Google BigQuery)]
+    CA -->|Simulate| MAIL[Mail/Alert System]
+    
+    DA -->|Results| ORCH
+    FS -->|Insights| ORCH
+    CA -->|Status| ORCH
+    
+    ORCH -->|Synthesized Response| BE
+    BE -->|JSON| FE
 ```
 
-## 📂 Project Structure
+## 🌟 Key Features
 
-- `app.py`: Frontend UI (Streamlit).
-- `agents.py`: core logic for the AI Agent.
-- `backend/main.py`: Entry point for the Cloud Function.
-- `backend/openapi.yaml`: OpenAPI specification for the API Gateway.
-- `Dockerfile`: Deployment configuration for the Cloud Run frontend.
-- `setup_bigquery.py`: utility to initialize BigQuery tables and mock data.
+### 1. 🤖 Collaborative Multi-Agent Workflow
+- **Logistics Analyst**: Directly queries BigQuery using natural language to extract specific data points.
+- **Fleet Strategist**: Takes data results and applies business logic to suggest optimizations.
+- **Communication Assistant**: Handles outgoing notifications and simulated email workflows.
 
-## 🚀 Deployment Steps
+### 2. 🎤 Multimodal Interaction
+- **Voice-to-Query**: Integrated microphone support allows users to speak their requests (e.g., "Show me delayed shipments").
+- **Smart Transcription**: Automated conversion of audio to text for seamless AI processing.
 
-### 1. Prerequisites
-- Google Cloud Project with Billing enabled.
-- Enabled APIs: Cloud Functions, Cloud Run, API Gateway, BigQuery, Vertex AI.
+### 3. 🛡️ Role-Based Access Control (RBAC)
+- **Logistics Manager**: Full access to financial and operational data.
+- **Fleet Operator**: Access to operational status; restricted from seeing costs and profits.
+- **Guest**: Highly restricted access to basic public shipment status only.
 
-### 2. Backend Deployment (Cloud Function)
-```bash
-gcloud functions deploy logistics-agent-func \
-    --gen2 \
-    --runtime=python311 \
-    --region=us-central1 \
-    --source=./backend \
-    --entry-point=process_query \
-    --trigger-http \
-    --allow-unauthenticated \
-    --set-env-vars "DATABASE_URL=bigquery://YOUR_PROJECT_ID/logistics_control_tower"
+### 4. 📊 Static & Live Data Explorer
+- Instantly view sample data schemas to understand the available logistics information without hitting the database repeatedly.
+
+### 5. 📧 Integrated Communication Hub
+- Centralized UI for checking alerts and sending simulated notifications to dispatchers and drivers.
+
+## 📁 Project Structure
+
+```text
+multi-agent-voice-concierge/
+├── app.py                  # Streamlit Frontend (UI, Voice, RBAC Logic)
+├── agents.py               # Core AI Orchestration (LangChain, Gemini 2.0 Flash)
+├── backend/
+│   ├── main.py             # FastAPI App (Endpoints, Serialization)
+│   ├── agents.py           # Synced AI logic for cloud deployment
+│   ├── Dockerfile          # Backend container configuration
+│   └── requirements.txt    # Backend dependencies
+├── tests/
+│   └── verify_prod.py      # Automated verification script
+├── Dockerfile              # Frontend container configuration
+├── requirements.txt        # Frontend dependencies
+└── README.md               # Project documentation
 ```
 
-### 3. API Gateway Deployment
-1. Update `backend/openapi.yaml` with your Cloud Function URL.
-2. Create and deploy the gateway:
-```bash
-gcloud api-gateway apis create logistics-gateway
-gcloud api-gateway api-configs create logistics-v1 --api=logistics-gateway --openapi-spec=backend/openapi.yaml
-gcloud api-gateway gateways create logistics-gateway --api=logistics-gateway --api-config=logistics-v1 --location=us-central1
-```
+## 🛠️ Multi-Agent Workflow Detail
 
-### 4. Frontend Deployment (Cloud Run)
-```bash
-gcloud run deploy logistics-frontend \
-    --source . \
-    --region=us-central1 \
-    --allow-unauthenticated \
-    --set-env-vars "API_URL=https://YOUR_GATEWAY_URL"
-```
+When a user asks: *"Why is the London shipment delayed and who should I notify?"*
 
-## 🛠️ Local Development
-1. Install dependencies: `pip install -r requirements.txt`
-2. Run Streamlit locally: `streamlit run app.py`
+1.  **Orchestrator** receives the query and identifies it needs **Data** and **Action**.
+2.  **Logistics Analyst** generates a BigQuery SQL query to find shipment #123 (London) and retrieves the status and driver details.
+3.  **Fleet Strategist** analyzes the delay reason (e.g., weather) and suggests a reroute or alert.
+4.  **Communication Assistant** prepares a simulated email draft for the dispatcher.
+5.  **Orchestrator** synthesizes all these into a single, cohesive response for the user.
+
+## 🚀 Getting Started
+
+1.  **Environment Variables**:
+    - `API_URL`: URL of the deployed FastAPI backend.
+    - `DATABASE_URL`: BigQuery connection string.
+2.  **Deployment**:
+    - Backend: `gcloud run deploy ... --source ./backend`
+    - Frontend: `gcloud run deploy ... --source .`
+3.  **Requirements**:
+    - Project must have **Vertex AI** and **BigQuery** APIs enabled.
+    - Gemini 2.0 Flash model should be enabled in **Model Garden**.
 
 ---
-*Developed for AI Logistics Orchestration*
+*Created with ❤️ for Advanced Logistics Engineering.*
