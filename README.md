@@ -57,7 +57,17 @@ graph TD
 ### 5. 📧 Integrated Communication Hub
 - Centralized UI for checking alerts and sending simulated notifications to dispatchers and drivers.
 
-## 📁 Project Structure
+## �️ Tech Stack
+
+- **Frontend**: [Streamlit](https://streamlit.io/) (Data Dashboard), [SpeechRecognition](https://pypi.org/project/SpeechRecognition/) & [Pydub](https://pub.dev/packages/pydub) (Voice Processing)
+- **Backend API**: [FastAPI](https://fastapi.tiangolo.com/) (High-performance Python API)
+- **AI Orchestration**: [LangChain](https://www.langchain.com/) (Multi-agent framework)
+- **LLM**: [Google Gemini 2.0 Flash Experimental](https://deepmind.google/technologies/gemini/) (via Vertex AI)
+- **Data Warehouse**: [Google BigQuery](https://cloud.google.com/bigquery)
+- **Infrastructure**: [Google Cloud Run](https://cloud.google.com/run) (Serverless Containers)
+- **Database Connectivity**: [SQLAlchemy-BigQuery](https://github.com/googleapis/python-bigquery-sqlalchemy)
+
+## �📁 Project Structure
 
 ```text
 multi-agent-voice-concierge/
@@ -90,12 +100,44 @@ When a user asks: *"Why is the London shipment delayed and who should I notify?"
 1.  **Environment Variables**:
     - `API_URL`: URL of the deployed FastAPI backend.
     - `DATABASE_URL`: BigQuery connection string.
-2.  **Deployment**:
-    - Backend: `gcloud run deploy ... --source ./backend`
-    - Frontend: `gcloud run deploy ... --source .`
-3.  **Requirements**:
-    - Project must have **Vertex AI** and **BigQuery** APIs enabled.
-    - Gemini 2.0 Flash model should be enabled in **Model Garden**.
+3.  **Model Garden**: Ensure Gemini 2.0 Flash is enabled in Vertex AI Model Garden.
+
+## ☁️ Deployment Guide (Google Cloud)
+
+### 1. Prerequisites
+- Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
+- Enable required APIs:
+  ```bash
+  gcloud services enable run.googleapis.com \
+                         aiplatform.googleapis.com \
+                         bigquery.googleapis.com \
+                         artifactregistry.googleapis.com
+  ```
+
+### 2. Deploy Backend
+Navigate to the root and run:
+```bash
+gcloud run deploy logistics-agent-backend \
+    --source ./backend \
+    --region=us-central1 \
+    --allow-unauthenticated \
+    --set-env-vars "DATABASE_URL=bigquery://[YOUR_PROJECT_ID]/logistics_control_tower" \
+    --memory=1Gi
+```
+*Note the Service URL returned after deployment.*
+
+### 3. Deploy Frontend
+Run from the root directory:
+```bash
+gcloud run deploy logistics-frontend \
+    --source . \
+    --region=us-central1 \
+    --allow-unauthenticated \
+    --set-env-vars "API_URL=[YOUR_BACKEND_URL]"
+```
+
+### 4. Setup BigQuery
+Ensure a dataset named `logistics_control_tower` exists in your project with the required tables (`shipments`, `vehicles`, `drivers`).
 
 ---
 *Created with ❤️ for Advanced Logistics Engineering.*
