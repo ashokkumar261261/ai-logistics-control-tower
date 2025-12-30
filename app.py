@@ -11,6 +11,40 @@ from pydub import AudioSegment
 # Configuration
 API_URL = os.getenv("API_URL", "https://logistics-gateway-39c2w2ut.uc.gateway.dev")
 
+# --- Custom Premium CSS ---
+st.markdown("""
+<style>
+    /* Premium Button Styling for Follow-up Chips */
+    div.stButton > button {
+        border-radius: 20px;
+        border: 1px solid #4F8BF9;
+        background-color: transparent;
+        color: #4F8BF9;
+        padding: 5px 15px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        margin-bottom: 10px;
+    }
+    div.stButton > button:hover {
+        background-color: #4F8BF9;
+        color: white;
+        border: 1px solid #4F8BF9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(79, 139, 249, 0.3);
+    }
+    /* Style for the suggestion header */
+    .suggestion-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Page Config
 st.set_page_config(page_title="Multi-Agent Logistics Control Tower", page_icon="🚚", layout="wide")
 
@@ -139,16 +173,17 @@ if "messages" not in st.session_state:
 for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        # If it's the last assistant message, show followups
         if message["role"] == "assistant" and "followups" in message and i == len(st.session_state.messages) - 1:
-            st.markdown("---")
-            st.caption("💡 Recommended Follow-ups:")
-            cols = st.columns(len(message["followups"]))
-            for idx, q in enumerate(message["followups"]):
-                if cols[idx].button(q, key=f"fup_{i}_{idx}"):
-                    # Set the prompt to this question and rerun
-                    st.session_state.fup_trigger = q
-                    st.rerun()
+            if message["followups"]:
+                st.markdown("<div class='suggestion-header'>✨ AI Suggested Next Steps</div>", unsafe_allow_html=True)
+                # Use a container for the chips
+                fups = message["followups"]
+                # Display buttons horizontally
+                cols = st.columns([1]*len(fups) + [2]) # Add space at the end
+                for idx, q in enumerate(fups):
+                    if cols[idx].button(q, key=f"fup_{i}_{idx}"):
+                        st.session_state.fup_trigger = q
+                        st.rerun()
 
 # --- User Input Section ---
 st.write("---")
