@@ -58,8 +58,15 @@ graph TD
 - Centralized UI for checking alerts and sending simulated notifications to dispatchers and drivers.
 
 ### 6. 🧠 Conversational Memory & Follow-ups
-- **Short-Term Memory**: Remembers the last 5 interactions to maintain context (e.g., "Tell me more about *that* delay").
+- **Short-Term Memory**: Remembers the last 5 interactions to maintain context.
 - **Smart Follow-ups**: AI suggests logical next steps or questions based on the current analysis.
+
+#### 🧪 Memory Demonstration Scenarios
+| Scenario | Initial Question | Memory Follow-up (Context Aware) |
+| :--- | :--- | :--- |
+| **Operational** | "List all shipments that are currently 'Delayed'." | "What is the **total revenue** for these shipments?" |
+| **Fleet Ops** | "Show me all 'Heavy Trucks' in the fleet." | "Are any of **them** over 100,000 km in mileage?" |
+| **Strategy** | "Identify shipments with a cost higher than $1,500." | "What are the **cargo types** for these specific orders?" |
 
 ## �️ Tech Stack
 
