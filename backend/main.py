@@ -48,18 +48,20 @@ def process_query(request):
                 return (json.dumps({"error": "Invalid or missing JSON body"}), 400, headers)
             query = request_json.get('query')
             role = request_json.get('role', 'Guest')
+            history = request_json.get('history', '')
             
             if not query:
                 return (json.dumps({"error": "No query provided"}), 400, headers)
 
-            print(f"Processing Query: {query} | Role: {role}")
+            print(f"Processing Query: {query} | Role: {role} | History Length: {len(history)}")
             try:
                 current_agent = get_agent()
-                result = current_agent.run(query, role=role)
+                result = current_agent.run(query, role=role, history=history)
                 return (json.dumps({
                     "summary": result.get("summary", ""),
                     "sql": result.get("sql", "-- Agent Executed --"),
-                    "error": result.get("error")
+                    "error": result.get("error"),
+                    "followups": result.get("followups", [])
                 }), 200, headers)
             except Exception as e:
                 print(f"Error running agent: {str(e)}")

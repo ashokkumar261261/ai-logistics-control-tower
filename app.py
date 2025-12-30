@@ -54,13 +54,20 @@ st.sidebar.markdown(f"**Current Access:** `{user_role}`")
 with st.sidebar.expander("ℹ️ Role Permissions & Samples"):
     if user_role == "Logistics Manager":
         st.write("**Access:** Full access to all tables (Shipments, Fleet, Locations) and financial data.")
-        st.write("**Try:** 'Total profit of all shipments', 'Identify bottlenecks in London'")
+        st.write("**Try:** 'Which shipments have the highest profit margin (revenue - cost)?', 'Identify bottlenecks in London'")
     elif user_role == "Fleet Operator":
         st.write("**Access:** Fleet and Shipment operations. Restricted from financial data.")
-        st.write("**Try:** 'Vehicle capacity > 10,000kg', 'List delayed shipments'")
+        st.write("**Try:** 'Are there any active vehicles with fuel levels below 20%?', 'List delayed shipments'")
     else:
         st.write("**Access:** Basic shipment status only.")
-        st.write("**Try:** 'Status of shipment 14', 'Distribution centers list'")
+        st.write("**Try:** 'Identify shipments carrying Medical Supplies that are currently delayed.', 'Status of shipment 14'")
+
+with st.sidebar.expander("🌟 Experience the New V3.2 Features"):
+    st.markdown("""
+    - **Memory**: Ask about "those shipments" to test context.
+    - **Follow-ups**: Click the AI-suggested chips!
+    - **Enriched Data**: Try querying about 'fuel levels', 'driver ratings', or 'experience years'.
+    """)
 
 # --- Communication Hub Instructions ---
 with st.sidebar.expander("❓ How to use Communication Hub"):
@@ -88,22 +95,29 @@ st.sidebar.markdown("---")
 st.sidebar.title("📊 Data Explorer")
 if st.sidebar.button("Show Sample Data"):
     with st.sidebar:
-        # Hardcoded BigQuery-like sample data
+        # Enhanced BigQuery-like sample data
         sample_shipments = [
-            {"id": 10, "origin": "London", "destination": "Paris", "status": "In Transit", "priority": "High", "cost": 1200.50},
-            {"id": 14, "origin": "Wrightview", "destination": "New Donport", "status": "Delayed", "priority": "Standard", "cost": 850.00},
-            {"id": 22, "origin": "Delhi", "destination": "Mumbai", "status": "Delivered", "priority": "Urgent", "cost": 3400.00}
+            {"id": 10, "origin": "London", "destination": "Paris", "status": "In Transit", "priority": "High", "cost": 1200.50, "revenue": 1800.00, "weight_kg": 500.5, "cargo_type": "Electronics", "customer_name": "Tech Corp"},
+            {"id": 14, "origin": "Wrightview", "destination": "New Donport", "status": "Delayed", "priority": "Standard", "cost": 850.00, "revenue": 1200.00, "weight_kg": 1200.0, "cargo_type": "Furniture", "customer_name": "Home Furnishings"},
+            {"id": 22, "origin": "Delhi", "destination": "Mumbai", "status": "Delivered", "priority": "Urgent", "cost": 3400.00, "revenue": 5000.00, "weight_kg": 2500.0, "cargo_type": "Medical Supplies", "customer_name": "Health Plus"}
         ]
         sample_vehicles = [
-            {"vehicle_id": 1, "type": "Heavy Truck", "capacity_kg": 15000, "status": "Active"},
-            {"vehicle_id": 4, "type": "Light Van", "capacity_kg": 2500, "status": "Maintenance"}
+            {"vehicle_id": 1, "type": "Heavy Truck", "capacity_kg": 15000, "status": "Active", "fuel_level": 75.5, "current_load_kg": 5000.0},
+            {"vehicle_id": 4, "type": "Light Van", "capacity_kg": 2500, "status": "Maintenance", "fuel_level": 10.5, "current_load_kg": 0.0}
+        ]
+        sample_drivers = [
+            {"id": 1, "name": "Kyle Miller", "status": "On Duty", "rating": 4.8, "experience_years": 10, "current_location": "London"},
+            {"id": 2, "name": "Sarah Jenkins", "status": "Off Duty", "rating": 4.9, "experience_years": 5, "current_location": "Paris"}
         ]
         
-        st.write("**Table: Shipments**")
+        st.write("**Table: Shipments (Enriched)**")
         st.dataframe(sample_shipments, hide_index=True)
         
-        st.write("**Table: Vehicles**")
+        st.write("**Table: Vehicles (Enriched)**")
         st.dataframe(sample_vehicles, hide_index=True)
+
+        st.write("**Table: Drivers (Enriched)**")
+        st.dataframe(sample_drivers, hide_index=True)
         
         st.info("💡 Useful for verifying data-driven queries.")
 
@@ -113,14 +127,28 @@ st.sidebar.success("Orchestrator: Active")
 st.sidebar.info("📊 Agent 1: Logistics Analyst (Online)")
 st.sidebar.info("🚀 Agent 2: Fleet Strategist (Online)")
 
+if st.sidebar.button("🗑️ Clear Chat History"):
+    st.session_state.messages = []
+    st.rerun()
+
 # Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Display Chat History
-for message in st.session_state.messages:
+for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        # If it's the last assistant message, show followups
+        if message["role"] == "assistant" and "followups" in message and i == len(st.session_state.messages) - 1:
+            st.markdown("---")
+            st.caption("💡 Recommended Follow-ups:")
+            cols = st.columns(len(message["followups"]))
+            for idx, q in enumerate(message["followups"]):
+                if cols[idx].button(q, key=f"fup_{i}_{idx}"):
+                    # Set the prompt to this question and rerun
+                    st.session_state.fup_trigger = q
+                    st.rerun()
 
 # --- User Input Section ---
 st.write("---")
@@ -150,6 +178,11 @@ if audio:
 if text_prompt:
     final_prompt = text_prompt
 
+# Handle Follow-up Click Trigger
+if "fup_trigger" in st.session_state and st.session_state.fup_trigger:
+    final_prompt = st.session_state.fup_trigger
+    st.session_state.fup_trigger = None
+
 # Process Query
 if final_prompt:
     st.session_state.messages.append({"role": "user", "content": final_prompt})
@@ -161,12 +194,24 @@ if final_prompt:
         message_placeholder.markdown("🤖 *Orchestrator: Engaging collaborative agents...*")
         
         try:
+            # Prepare History (last 5 messages for context window)
+            history_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-6:-1]])
+            
             # Backend Call
-            response = requests.post(f"{API_URL}/query", json={"query": final_prompt, "role": user_role}, timeout=60)
+            response = requests.post(
+                f"{API_URL}/query", 
+                json={
+                    "query": final_prompt, 
+                    "role": user_role,
+                    "history": history_str
+                }, 
+                timeout=60
+            )
             
             if response.status_code == 200:
                 result = response.json()
                 summary = result.get("summary", "No insight provided.")
+                followups = result.get("followups", [])
                 
                 # Logic to determine agent attribution for clear UI
                 attributed_summary = summary
@@ -178,7 +223,7 @@ if final_prompt:
                          attributed_summary = f"**[Data Analyst]**: {summary}"
 
                 message_placeholder.markdown(attributed_summary)
-                st.session_state.messages.append({"role": "assistant", "content": attributed_summary})
+                st.session_state.messages.append({"role": "assistant", "content": attributed_summary, "followups": followups})
                 
                 # Show Agent Trace
                 with st.expander("🔍 Collaboration Trace"):
@@ -186,6 +231,9 @@ if final_prompt:
                     if "Fleet Strategist" in attributed_summary:
                         st.write("**Fleet Strategist**: Applied operational logic for optimization advice.")
                     st.write("**Orchestrator**: Synthesized final response for user.")
+                
+                # RERUN to show followups immediately (Streamlit hack)
+                st.rerun()
             else:
                 st.error(f"Backend Insight Failure ({response.status_code})")
         except Exception as e:

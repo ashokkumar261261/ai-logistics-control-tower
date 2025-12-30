@@ -42,11 +42,30 @@ class MultiAgentLogisticsSystem:
         prompt = ChatPromptTemplate.from_template(
             "You are a Senior Fleet Operations Manager at a global logistics firm. "
             "Your persona is proactive, cost-conscious, and strategic.\n\n"
+            "Conversation History: {history}\n\n"
             "Data Report from Analyst: {data_facts}\n\n"
             "Based on these facts, provide 2-3 specific, actionable recommendations to improve "
             "efficiency or resolve bottlenecks. Keep your response professional and executive-ready."
         )
         return prompt | self.llm
+
+    def _generate_followups(self, response_text, history=""):
+        """Generates 3 logical follow-up questions based on the current context."""
+        prompt = ChatPromptTemplate.from_template(
+            "Based on the following AI response and conversation history, suggest 3 concise follow-up questions "
+            "the user might want to ask next. These questions should be helpful for a logistics manager.\n\n"
+            "Conversation History: {history}\n"
+            "AI Response: {response}\n\n"
+            "Return ONLY a JSON list of strings. Example: [\"Question 1\", \"Question 2\", \"Question 3\"]"
+        )
+        chain = prompt | self.llm
+        try:
+            result = chain.invoke({"history": history, "response": response_text})
+            # Handle potential markdown formatting in LLM output
+            content = result.content.replace("```json", "").replace("```", "").strip()
+            return json.loads(content)
+        except Exception:
+            return ["Show me delayed shipments", "What is the fleet capacity?", "Identify bottlenecks"]
 
     
     def _setup_communication_agent(self):
@@ -85,48 +104,43 @@ class MultiAgentLogisticsSystem:
         llm_with_tools = self.llm.bind_tools([fetch_inbox, send_email])
         return llm_with_tools
 
-    def run(self, query, role="Guest"):
-        """Orchestrates the multi-agent workflow with RBAC security."""
+    def run(self, query, role="Guest", history=""):
+        """Orchestrates the multi-agent workflow with RBAC security and memory."""
         try:
             print(f"Orchestrator: User Role = {role}")
             
             # 0. RBAC Security Check
             query_lower = query.lower()
             if role == "Guest" and any(w in query_lower for w in ["cost", "price", "profit", "salary", "money"]):
-                return {"summary": "🚫 Access Denied: Guests cannot access financial data.", "sql": None, "error": None}
+                return {"summary": "🚫 Access Denied: Guests cannot access financial data.", "sql": None, "error": None, "followups": []}
             
             # 1. Intent Detection: Communication vs Analytics
             if any(w in query_lower for w in ["email", "mail", "inbox", "send", "read"]):
                 print("Orchestrator: Routing to Communication Agent...")
-                # Simple tool invocation logic
-                comm_agent = self._setup_communication_agent()
-                result = comm_agent.invoke(query)
-                # Parse tool calls if any (mock logic)
-                # For this demo, we assume the LLM generates a response or tool call. 
-                # Since we bound tools, we need to execute them.
-                # Simplified: Just calling the tools directly for the specific intents to save complexity in this snippet
                 if "read" in query_lower or "inbox" in query_lower:
-                    from langchain.tools import tool
-                    @tool
-                    def fetch_inbox():
-                         return "[UNREAD] Subject: Delay Report - Driver Kyle\nBody: Vehicle V-001 is stuck in traffic."
-                    return {"summary": fetch_inbox.invoke({}), "sql": None, "error": None}
+                    summary = "[UNREAD] Subject: Delay Report - Driver Kyle\nBody: Vehicle V-001 is stuck in traffic."
+                    followups = ["Send an email to Kyle", "Find alternative vehicle", "Check shipment 14 status"]
+                    return {"summary": summary, "sql": None, "error": None, "followups": followups}
                 elif "send" in query_lower:
-                    return {"summary": f"📧 Draft Email Created for '{query}'. (Simulation: Email Sent)", "sql": None, "error": None}
+                    summary = f"📧 Draft Email Created for '{query}'. (Simulation: Email Sent)"
+                    followups = ["Check inbox", "Show fleet status", "What is the next pickup?"]
+                    return {"summary": summary, "sql": None, "error": None, "followups": followups}
             
             # 2. Analytics Workflow
             # Data Analyst fetching facts
-            print(f"Orchestrator: Engaging Data Analyst for: {query}")
-            data_result = self.data_analyst.invoke(query)
+            print(f"Orchestrator: Engaging Data Analyst for: {query} (Context included)")
+            # Add history to query for data analyst to understand "it", "them", etc.
+            contextual_query = f"Conversation Context: {history}\nUser Query: {query}" if history else query
+            data_result = self.data_analyst.invoke(contextual_query)
             facts = data_result.get("output", "No data retrieved.")
 
-            # 3. Strategy Layer (Restricted for Guests/Operators if demanding high-level strategy? - Optional, keeping open for now)
+            # 3. Strategy Layer
             strategy_keywords = ["optimize", "advice", "suggest", "improve", "why", "strategy", "fix"]
             needs_strategy = any(word in query.lower() for word in strategy_keywords)
 
             if needs_strategy:
                 print("Orchestrator: Engaging Fleet Strategist for operational insight...")
-                strategy_advice = self.fleet_strategist.invoke({"data_facts": facts})
+                strategy_advice = self.fleet_strategist.invoke({"data_facts": facts, "history": history}).content
                 
                 final_response = (
                     f"### 📊 Analyst Data Report\n{facts}\n\n"
@@ -135,16 +149,20 @@ class MultiAgentLogisticsSystem:
             else:
                 final_response = facts
 
+            # 4. Follow-up Generation
+            followups = self._generate_followups(final_response, history)
+
             return {
                 "summary": final_response,
                 "sql": "-- Multi-Agent Coordination Hook --",
-                "error": None
+                "error": None,
+                "followups": followups
             }
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
             print(f"Agent Execution Crash: {error_trace}")
-            return {"summary": "System error in multi-agent workflow.", "sql": None, "error": str(e)}
+            return {"summary": "System error in multi-agent workflow.", "sql": None, "error": str(e), "followups": []}
 
 def get_multi_agent():
     return MultiAgentLogisticsSystem()
