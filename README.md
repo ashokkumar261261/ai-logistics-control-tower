@@ -106,14 +106,51 @@ When a user asks: *"Why is the London shipment delayed and who should I notify?"
 4.  **Communication Assistant** prepares a simulated email draft for the dispatcher.
 5.  **Orchestrator** synthesizes all these into a single, cohesive response for the user.
 
-## 🚀 Getting Started
+## ⚙️ Local Setup & Configuration
 
-1.  **Environment Variables**:
-    - `API_URL`: URL of the deployed FastAPI backend.
-    - `DATABASE_URL`: BigQuery connection string.
-3.  **Model Garden**: Ensure Gemini 2.0 Flash is enabled in Vertex AI Model Garden.
+Follow these steps to get the project running on your local machine.
 
-## ☁️ Deployment Guide (Google Cloud)
+### 1. Prerequisites
+- **Python 3.9+** installed.
+- A **Google Cloud Project** with billing enabled.
+- **Google Cloud CLI** installed (`gcloud auth login`).
+
+### 2. Clone & Install
+```bash
+git clone https://github.com/ashokkumar261261/ai-logistics-control-tower.git
+cd ai-logistics-control-tower
+python -m venv venv
+source venv/bin/activate  # Windows: venv\\Scripts\\activate
+pip install -r requirements.txt
+```
+
+### 3. Google Cloud Authentication
+1.  **Service Account**: 
+    - Create a Service Account in your [GCP Console](https://console.cloud.google.com/iam-admin/serviceaccounts).
+    - Assign roles: `BigQuery Admin`, `Vertex AI User`.
+    - Download the JSON key, rename it to `service-account.json`, and place it in the **root directory**.
+2.  **Environment Variables**:
+    - The code uses `service-account.json` for local BigQuery and Vertex AI access.
+
+### 4. Configuration Update
+You MUST update the `PROJECT_ID` in the following files to match your Google Cloud Project:
+- `setup_bigquery.py` (Line 10)
+- `agents.py` (Line 10)
+- `backend/main.py` (Line 7)
+- `backend/agents.py` (Line 10)
+
+### 5. Data & AI Environment Setup
+Run the initialization script to create the BigQuery dataset, migrate sample data, and configure the BQML Gemini model:
+```bash
+python setup_bigquery.py
+```
+
+### 6. Run Locally
+```bash
+streamlit run app.py
+```
+
+## 🚀 Deployment Guide (Google Cloud)
 
 ### 1. Prerequisites
 - Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
